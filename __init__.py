@@ -23,6 +23,50 @@ from google.appengine.api import users
 from google.appengine.ext import db
 
 
+#
+# default implementations of get_value_for_form|make_value_from_form
+# backported from ext.db.djangoforms
+#
+class FormProperty(object):
+  def get_value_for_form(self, instance):
+    """Extract the property value from the instance for use in a form.
+
+    Override this to do a property- or field-specific type conversion.
+
+    Args:
+      instance: a db.Model instance
+
+    Returns:
+      The property's value extracted from the instance, possibly
+      converted to a type suitable for a form field; possibly None.
+
+    By default this returns the instance attribute's value unchanged.
+    """
+    return getattr(instance, self.name)
+
+  def make_value_from_form(self, value):
+    """Convert a form value to a property value.
+
+    Override this to do a property- or field-specific type conversion.
+
+    Args:
+      value: the cleaned value retrieved from the form field
+
+    Returns:
+      A value suitable for assignment to a model instance's property;
+      possibly None.
+
+    By default this converts the value to self.data_type if it
+    isn't already an instance of that type, except if the value is
+    empty, in which case we return None.
+    """
+    if value in (None, ''):
+      return None
+    if not isinstance(value, self.data_type):
+      value = self.data_type(value)
+    return value
+
+
 def DerivedProperty(func=None, *args, **kwargs):
   """Implements a 'derived' datastore property.
 
@@ -334,7 +378,7 @@ class PickleProperty(db.Property):
     instances."""
     return copy.copy(self.default)
 
-class SetProperty(db.ListProperty):
+class SetProperty(db.ListProperty, FormProperty):
   """A property that stores a set of things.
 
   This is a parameterized property; the parameter must be a valid
